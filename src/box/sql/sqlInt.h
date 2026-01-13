@@ -2696,7 +2696,8 @@ sql_space_column_is_in_pk(const struct space *space, uint32_t);
  * @param expr_list  Expr list from which to derive column names.
  * @param space_def Destination space definition.
  */
-void
+//void
+int
 sqlColumnsFromExprList(struct Parse *parse, struct ExprList *expr_list,
 		       struct space_def *space_def);
 

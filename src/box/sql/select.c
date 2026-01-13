@@ -2037,7 +2037,7 @@ generate_column_metadata(struct Parse *pParse, struct SrcList *pTabList,
  * Only the column names are computed.  Column.zType, Column.zColl,
  * and other fields of Column are zeroed.
  */
-void
+int
 sqlColumnsFromExprList(Parse * parse, ExprList * expr_list,
 			   struct space_def *space_def)
 {
@@ -2106,6 +2106,7 @@ sqlColumnsFromExprList(Parse * parse, ExprList * expr_list,
 		/* Make sure the column name is unique.  If the name is not unique,
 		 * append an integer to the name so that it becomes unique.
 		 */
+		 /*
 		size_t cnt = 0;
 		while (sqlHashFind(&ht, name) != 0) {
 			assert(len > 0);
@@ -2118,6 +2119,12 @@ sqlColumnsFromExprList(Parse * parse, ExprList * expr_list,
 			name = tmp;
 			len = strlen(name);
 		}
+		*/
+		if (sqlHashFind(&ht, name) != 0) {
+			diag_set(ClientError, ER_SPACE_FIELD_IS_DUPLICATE,
+				name);
+			return -1;
+		}
 		assert(name != NULL);
 		void *field = &space_def->fields[i];
 		assert(field != NULL);
@@ -2128,6 +2135,7 @@ sqlColumnsFromExprList(Parse * parse, ExprList * expr_list,
 		sql_xfree(name);
 	}
 	sqlHashClear(&ht);
+	return 0;
 }
 
 /*
@@ -2189,9 +2197,14 @@ sqlResultSetOfSelect(Parse * pParse, Select * pSelect)
 	 * is disabled
 	 */
 	assert(sql_get()->lookaside.bDisable);
-	sqlColumnsFromExprList(pParse, pSelect->pEList, space->def);
-	sqlSelectAddColumnTypeAndCollation(pParse, space->def, pSelect);
-	return space;
+	if (sqlColumnsFromExprList(pParse, pSelect->pEList, space->def) == 0) {
+	    sqlSelectAddColumnTypeAndCollation(pParse, space->def, pSelect);
+	    return space;
+	}
+	else {
+	    pParse->is_aborted = true;
+	    return NULL;
+	}
 }
 
 /** Get a VDBE for the given parser context. Create a new one if necessary. */
