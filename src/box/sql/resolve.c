@@ -195,6 +195,22 @@ sql_find_column_expr(const struct ExprList *list, const char *tab_name,
 	return -1;
 }
 
+/**
+ * This function counts the number of occurrences of name in space.
+ */
+int count_name(const struct space_def *space_def, const char *name)
+{
+	int count = 0;
+	const char *new_name = sql_legacy_name_new(name, strlen(name));
+	for (uint32_t i = 0; i < space_def->field_count; ++i) {
+		if (strcmp(space_def->fields[i].name, name) == 0)
+			count += 1;
+		else if (strcmp(space_def->fields[i].name, new_name) == 0)
+			count += 1;
+	}
+	return count;
+}
+
 /*
  * Given the name of a column of the form X.Y.Z or Y.Z or just Z, look up
  * that name in the set of source tables in pSrcList and make the pExpr
@@ -283,7 +299,7 @@ lookupName(struct Parse *pParse, struct Expr *pExpr, struct NameContext *pNC)
 								 zCol, old_tab,
 								 old_col);
 					if (j >= 0) {
-						cnt++;
+						cnt = cnt + count_name(space_def, zCol);
 						cntTab = 2;
 						pMatch = pItem;
 						pExpr->iColumn = j;
@@ -320,7 +336,7 @@ lookupName(struct Parse *pParse, struct Expr *pExpr, struct NameContext *pNC)
 				     nameInUsingClause(pItem->pUsing, zCol,
 						       old_col)))
 					continue;
-				cnt++;
+				cnt = cnt + count_name(space_def, zCol);
 				pMatch = pItem;
 				pExpr->iColumn = (i16) j;
 			}
@@ -366,7 +382,7 @@ lookupName(struct Parse *pParse, struct Expr *pExpr, struct NameContext *pNC)
 						break;
 				}
 				if (iCol < (int)space_def->field_count) {
-					cnt++;
+					cnt = cnt + count_name(space_def, zCol);
 					uint64_t *mask = pExpr->iTable == 0 ?
 							 &pParse->oldmask :
 							 &pParse->newmask;
