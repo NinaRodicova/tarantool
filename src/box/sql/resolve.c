@@ -295,6 +295,18 @@ lookupName(struct Parse *pParse, struct Expr *pExpr, struct NameContext *pNC)
 					selFlags & SF_NestedFrom) != 0) {
 					int hit = 0;
 					pEList = pItem->pSelect->pEList;
+					//int count2 = sql_count_column_expr ...
+					/*
+					cnt = cnt + count2;
+					if (count2 == 1) {
+						j = sql_find_column_expr(pEList, zTab,
+								 zCol, old_tab,
+								 old_col);
+						cntTab = 2;
+						pMatch = pItem;
+						pExpr->iColumn = j;
+					}
+						*/
 					j = sql_find_column_expr(pEList, zTab,
 								 zCol, old_tab,
 								 old_col);
@@ -336,7 +348,7 @@ lookupName(struct Parse *pParse, struct Expr *pExpr, struct NameContext *pNC)
 				     nameInUsingClause(pItem->pUsing, zCol,
 						       old_col)))
 					continue;
-				cnt = cnt + count_name(space_def, zCol);
+				cnt = cnt + count_name(space_def, old_col);
 				pMatch = pItem;
 				pExpr->iColumn = (i16) j;
 			}
@@ -382,7 +394,7 @@ lookupName(struct Parse *pParse, struct Expr *pExpr, struct NameContext *pNC)
 						break;
 				}
 				if (iCol < (int)space_def->field_count) {
-					cnt = cnt + count_name(space_def, zCol);
+					cnt++;
 					uint64_t *mask = pExpr->iTable == 0 ?
 							 &pParse->oldmask :
 							 &pParse->newmask;

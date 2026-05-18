@@ -1205,6 +1205,17 @@ sqlExprAssignVarNumber(Parse * pParse, Expr * pExpr, u32 n)
 	assert(!ExprHasProperty
 	       (pExpr, EP_IntValue | EP_Reduced | EP_TokenOnly));
 	z = pExpr->u.zToken;
+	if (pParse->my_count == 0) {
+		pParse->my_data = malloc(sizeof(char*));
+		pParse->my_data_len = malloc(sizeof(u32*));
+	}
+	else {
+		pParse->my_data = realloc(pParse->my_data, (pParse->my_count + 1) * sizeof(char*));
+		pParse->my_data_len = realloc(pParse->my_data_len, (pParse->my_count + 1) * sizeof(u32*));
+	}
+	pParse->my_data[pParse->my_count] = pExpr->u.zToken;
+	pParse->my_data_len[pParse->my_count] = n;
+	pParse->my_count += 1;
 	assert(z != 0);
 	assert(z[0] != 0);
 	assert(n == sqlStrlen30(z));
@@ -1258,6 +1269,7 @@ sqlExprAssignVarNumber(Parse * pParse, Expr * pExpr, u32 n)
 		}
 		if (doAdd) {
 			pParse->pVList = sqlVListAdd(pParse->pVList, z, n, x);
+			// n - длинна названия столба x - номер 
 		}
 	}
 	pExpr->iColumn = x;
@@ -1306,7 +1318,6 @@ expr_new_variable(struct Parse *parse, const struct Token *spec,
 	if (id != NULL)
 		memcpy(expr->u.zToken + 1, id->z, id->n);
 	expr->u.zToken[len] = '\0';
-
 	sqlExprAssignVarNumber(parse, expr, len);
 	return expr;
 }

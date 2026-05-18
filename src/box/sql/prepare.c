@@ -138,7 +138,7 @@ sql_stmt_compile(const char *zSql, int nBytes, struct Vdbe *pReprepare,
 						   azColName[name_index + 1]);
 		}
 	}
-
+	printf("I am HERE\n");
 	if (sql_get()->init.busy == 0) {
 		Vdbe *pVdbe = sParse.pVdbe;
 		sqlVdbeSetSql(pVdbe, zSql, (int)(sParse.zTail - zSql));
@@ -158,7 +158,6 @@ sql_stmt_compile(const char *zSql, int nBytes, struct Vdbe *pReprepare,
 	}
 
  end_prepare:
-
 	sql_parser_destroy(&sParse);
 	return rc;
 }
@@ -195,6 +194,7 @@ sql_parser_create(struct Parse *parser, uint32_t sql_flags)
 	parser->line_pos = 1;
 	parser->has_autoinc = false;
 	region_create(&parser->region, &cord()->slabc);
+	parser->my_count = 0;
 }
 
 void

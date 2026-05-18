@@ -44,7 +44,6 @@ extern "C" {
 #include "mp_extension_types.h"
 #include "tt_uuid.h"
 #include "datetime.h"
-
 struct Vdbe;
 
 /**
@@ -130,6 +129,15 @@ sql_bind_decode(struct sql_bind *bind, int i, const char **packet);
 int
 sql_bind_column(struct Vdbe *stmt, const struct sql_bind *p, uint32_t pos);
 
+int
+sql_count_names2(struct Vdbe *stmt);
+
+char *
+sql_names2(struct Vdbe *stmt, int i);
+
+uint32_t
+sql_names_len2(struct Vdbe *stmt, int i);
+
 /**
  * Bind parameter values to the prepared statement.
  * @param stmt Prepared statement.
@@ -143,11 +151,30 @@ static inline int
 sql_bind(struct Vdbe *stmt, const struct sql_bind *bind, uint32_t bind_count)
 {
 	assert(stmt != NULL);
+	for (int i = 0; i < sql_count_names2(stmt); i++) {
+		uint32_t n = sql_names_len2(stmt, i);
+		printf("%s %d\n", sql_names2(stmt, i), n);
+		for (uint32_t j = 0; j < bind_count; j++) {
+			printf("bind %s %d\n", bind[j].name, bind[j].name_len);
+			if (bind[j].name_len == n) {
+				if (strcmp(sql_names2(stmt, i), bind[j].name) == 0) {
+					printf("FINISH %s %s %d\n", bind[j].name, sql_names2(stmt, i), i+1);
+					if (sql_bind_column(stmt, &bind[j], i+1) != 0)
+						return -1;
+					break;
+				}
+			}
+		}
+	}
+		/*
 	uint32_t pos = 1;
+	
 	for (uint32_t i = 0; i < bind_count; pos = ++i + 1) {
+		printf("NEW %d\n", pos);
 		if (sql_bind_column(stmt, &bind[i], pos) != 0)
 			return -1;
 	}
+	*/
 	return 0;
 }
 

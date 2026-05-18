@@ -579,6 +579,14 @@ sql_bind_ptr(struct Vdbe *v, int i, void *ptr);
 int
 sql_init_db(sql **db);
 
+int
+sql_count_names(struct Vdbe * v);
+
+char *
+sql_names(struct Vdbe * v, int i);
+
+uint32_t
+sql_names_len(struct Vdbe * v, int i);
 
 /**
  * Get number of the named parameter in the prepared sql
@@ -2095,6 +2103,9 @@ struct Parse {
 	enum ast_type parsed_ast_type;
 	/** SQL options which were used to compile this VDBE. */
 	uint32_t sql_flags;
+	char **my_data;
+	int my_count;
+	u32 *my_data_len;
 	/**
 	 * Members of this union are valid only
 	 * if parse_only is set to true.

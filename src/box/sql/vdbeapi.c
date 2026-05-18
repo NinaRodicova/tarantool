@@ -395,8 +395,10 @@ sql_bind_double(struct Vdbe *p, int i, double rValue)
 int
 sql_bind_boolean(struct Vdbe *p, int i, bool value)
 {
+	/*
 	if (vdbeUnbind(p, i) != 0)
 		return -1;
+		*/
 	int rc = sql_bind_type(p, i, "boolean");
 	mem_set_bool(&p->aVar[i - 1], value);
 	return rc;
@@ -411,8 +413,10 @@ sql_bind_int(struct Vdbe *p, int i, int iValue)
 int
 sql_bind_int64(struct Vdbe *p, int i, int64_t iValue)
 {
+	/*
 	if (vdbeUnbind(p, i) != 0)
 		return -1;
+		*/
 	int rc = sql_bind_type(p, i, "integer");
 	mem_set_int(&p->aVar[i - 1], iValue);
 	return rc;
@@ -421,8 +425,10 @@ sql_bind_int64(struct Vdbe *p, int i, int64_t iValue)
 int
 sql_bind_uint64(struct Vdbe *p, int i, uint64_t value)
 {
+	/*
 	if (vdbeUnbind(p, i) != 0)
 		return -1;
+	*/
 	int rc = sql_bind_type(p, i, "integer");
 	mem_set_uint(&p->aVar[i - 1], value);
 	return rc;
@@ -523,6 +529,24 @@ sql_bind_parameter_name(const struct Vdbe *p, int i)
 	if (p == NULL)
 		return NULL;
 	return sqlVListNumToName(p->pVList, i+1);
+}
+
+int
+sql_count_names(Vdbe * p)
+{
+	return p->my_count;
+}
+
+char *
+sql_names(Vdbe * p, int i)
+{
+	return p->my_data[i];
+}
+
+uint32_t
+sql_names_len(Vdbe * p, int i)
+{
+	return p->my_data_len[i];
 }
 
 /*
