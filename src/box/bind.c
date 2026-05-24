@@ -174,15 +174,30 @@ sql_bind_list_decode(const char *data, struct sql_bind **out_bind)
 }
 
 int
+sql_get_count_original_names2(struct Vdbe * stmt)
+{
+	return sql_get_count_original_names(stmt);
+}
+
+char *
+sql_get_original_names2(struct Vdbe * stmt, int i)
+{
+	return sql_get_original_names(stmt, i);
+}
+
+uint32_t
+sql_get_original_names_len2(struct Vdbe * stmt, int i)
+{
+	return sql_get_original_names_len(stmt, i);
+}
+
+int
 sql_bind_column(struct Vdbe *stmt, const struct sql_bind *p, uint32_t pos)
 {
-	if (p->name != NULL) {
-		pos = sql_bind_parameter_lindex(stmt, p->name, p->name_len);
-		if (pos == 0) {
-			diag_set(ClientError, ER_SQL_BIND_NOT_FOUND,
+	if (pos == 0) {
+		diag_set(ClientError, ER_SQL_BIND_NOT_FOUND,
 				 sql_bind_name(p));
-			return -1;
-		}
+		return -1;
 	}
 	switch (p->type) {
 	case MP_INT:

@@ -48,6 +48,24 @@ extern "C" {
 struct Vdbe;
 
 /**
+ * Return count of original names in request.
+*/
+int
+sql_get_count_original_names2(struct Vdbe * stmt);
+
+/**
+ * Return structure with original names in request.
+*/
+char *
+sql_get_original_names2(struct Vdbe * stmt, int i);
+
+/**
+ * Return structure with lengths original names in request.
+*/
+uint32_t
+sql_get_original_names_len2(struct Vdbe * stmt, int i);
+
+/**
  * Name and value of an SQL prepared statement parameter.
  * @todo: merge with sql_value.
  */
@@ -143,10 +161,18 @@ static inline int
 sql_bind(struct Vdbe *stmt, const struct sql_bind *bind, uint32_t bind_count)
 {
 	assert(stmt != NULL);
-	uint32_t pos = 1;
-	for (uint32_t i = 0; i < bind_count; pos = ++i + 1) {
-		if (sql_bind_column(stmt, &bind[i], pos) != 0)
-			return -1;
+	for (int i = 0; i < sql_get_count_original_names2(stmt); i++) {
+		uint32_t n = sql_get_original_names_len2(stmt, i);
+		char *name = sql_get_original_names2(stmt, i);
+		for (uint32_t j = 0; j < bind_count; j++) {
+			if (bind[j].name_len == n) {
+				if (strcmp(name, bind[j].name) == 0) {
+					if (sql_bind_column(stmt, &bind[j], i+1) != 0)
+						return -1;
+					break;
+				}
+			}
+		}
 	}
 	return 0;
 }
