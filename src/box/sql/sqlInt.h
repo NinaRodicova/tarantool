@@ -579,6 +579,23 @@ sql_bind_ptr(struct Vdbe *v, int i, void *ptr);
 int
 sql_init_db(sql **db);
 
+/**
+ * Return count of original names in request.
+*/
+int
+sql_get_count_original_names(struct Vdbe * stmt);
+
+/**
+ * Return structure with original names in request.
+*/
+char *
+sql_get_original_names(struct Vdbe * stmt, int i);
+
+/**
+ * Return structure with lengths original names in request.
+*/
+uint32_t
+sql_get_original_names_len(struct Vdbe * stmt, int i);
 
 /**
  * Get number of the named parameter in the prepared sql
@@ -2095,6 +2112,10 @@ struct Parse {
 	enum ast_type parsed_ast_type;
 	/** SQL options which were used to compile this VDBE. */
 	uint32_t sql_flags;
+	char **original_names;
+	u32 *original_names_len;
+	int count_original_names;
+	int max_count_original_names;
 	/**
 	 * Members of this union are valid only
 	 * if parse_only is set to true.

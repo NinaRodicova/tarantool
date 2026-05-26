@@ -1079,7 +1079,6 @@ sqlVListAdd(int *pIn, const char *zName, int nName, int iVal)
 	int nInt;		/* number of sizeof(int) objects needed for zName */
 	char *z;		/* Pointer to where zName will be stored */
 	int i;			/* Index in pIn[] where zName is stored */
-
 	nInt = nName / 4 + 3;
 	assert(pIn == 0 || pIn[0] >= 3);	/* Verify ok to add new elements */
 	if (pIn == 0 || pIn[1] + nInt > pIn[0]) {

@@ -164,12 +164,30 @@ sql_bind(struct Vdbe *stmt, const struct sql_bind *bind, uint32_t bind_count)
 	for (int i = 0; i < sql_get_count_original_names2(stmt); i++) {
 		uint32_t n = sql_get_original_names_len2(stmt, i);
 		char *name = sql_get_original_names2(stmt, i);
-		for (uint32_t j = 0; j < bind_count; j++) {
-			if (bind[j].name_len == n) {
-				if (strcmp(name, bind[j].name) == 0) {
-					if (sql_bind_column(stmt, &bind[j], i+1) != 0)
-						return -1;
-					break;
+
+		int flag = 1;
+		if (n > 1) {
+			if (name[0] == '$') {
+				flag = 0;
+				uint32_t number = 0;
+				for (uint32_t idx = 1; idx < n; idx++) {
+					number += name[idx] - '0';
+				}
+				if (number > bind_count) {
+					printf("Very Bad\n");
+				}
+				if (sql_bind_column(stmt, &bind[number-1], i+1) != 0)
+					return -1;
+			}
+		}
+		if (flag) {
+			for (uint32_t j = 0; j < bind_count; j++) {
+				if (bind[j].name_len == n) {
+					if (strcmp(name, bind[j].name) == 0) {
+						if (sql_bind_column(stmt, &bind[j], i+1) != 0)
+							return -1;
+						break;
+					}
 				}
 			}
 		}

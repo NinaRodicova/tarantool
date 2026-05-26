@@ -133,11 +133,9 @@ sqlStep(Vdbe * p)
 		rc = sqlVdbeExec(p);
 		db->nVdbeExec--;
 	}
-
 	/* If the statement completed successfully, invoke the profile callback */
 	if (rc != SQL_ROW && p->startTime > 0)
 		invokeProfileCallback(p);
-
 	if (rc != SQL_ROW && rc != SQL_DONE) {
 		/* If this statement was prepared using sql_prepare(), and an
 		 * error has occurred, then return an error.

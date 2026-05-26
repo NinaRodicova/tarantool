@@ -304,6 +304,10 @@ struct Vdbe {
 	uint32_t sql_flags;
 	/* Anonymous savepoint for aborts only */
 	struct txn_savepoint *anonymous_savepoint;
+	char **original_names;
+	u32 *original_names_len;
+	int count_original_names;
+	int max_count_original_names;
 };
 
 /*
