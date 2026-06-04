@@ -389,7 +389,8 @@ sql_bind_double(struct Vdbe *p, int i, double rValue)
 		return -1;
 	}
 	int rc = sql_bind_type(p, i, "numeric");
-	mem_set_double(&p->aVar[i - 1], rValue);
+	printf("%f\n", rValue);
+	//mem_set_double(&p->aVar[i - 1], rValue);
 	return rc;
 }
 
@@ -402,8 +403,88 @@ sql_bind_boolean(struct Vdbe *p, int i, bool value)
 		return -1;
 	}
 	int rc = sql_bind_type(p, i, "boolean");
-	mem_set_bool(&p->aVar[i - 1], value);
+	printf("%d\n", value);
+	//mem_set_bool(&p->aVar[i - 1], value);
 	return rc;
+}
+
+
+void
+mem_set_double1(struct Vdbe *p, int i, double rValue)
+{
+	mem_set_double(&p->aVar[i], rValue);
+}
+
+void
+mem_set_boolean1(struct Vdbe *p, int i, bool value)
+{
+	mem_set_bool(&p->aVar[i], value);
+}
+
+void
+mem_set_datetime1(struct Vdbe *p, int i, const struct datetime *dt)
+{
+	mem_set_datetime(&p->aVar[i], dt);
+}
+
+void
+mem_set_interval1(struct Vdbe *p, int i, const struct interval *itv)
+{
+	mem_set_interval(&p->aVar[i], itv);
+}
+
+void
+mem_set_int1(struct Vdbe *stmt, uint32_t i, int64_t value)
+{
+	mem_set_int(&stmt->aVar[i], value);
+}
+
+void
+mem_set_uint1(struct Vdbe *stmt, uint32_t i, uint64_t val)
+{
+	mem_set_uint(&stmt->aVar[i], val);
+}
+
+void
+mem_set_ptr1(struct Vdbe *stmt, uint32_t i, void *ptr)
+{
+	mem_set_ptr(&stmt->aVar[i], ptr);
+}
+
+void
+mem_set_str_static1(struct Vdbe *vdbe, int i, const char *str, uint32_t len)
+{
+	mem_set_str_static(&vdbe->aVar[i], (char *)str, len);
+}
+
+void
+mem_set_bin_static1(struct Vdbe *vdbe, int i, const char *str, uint32_t size)
+{
+	mem_set_bin_static(&vdbe->aVar[i], (char *)str, size);
+}
+
+void
+mem_set_array_static1(struct Vdbe *vdbe, int i, const char *str, uint32_t size)
+{
+	mem_set_array_static(&vdbe->aVar[i], (char *)str, size);
+}
+
+void
+mem_set_map_static1(struct Vdbe *vdbe, int i, const char *str, uint32_t size)
+{
+	mem_set_map_static(&vdbe->aVar[i], (char *)str, size);
+}
+
+void
+mem_set_uuid1(struct Vdbe *p, int i, const struct tt_uuid *uuid)
+{
+	mem_set_uuid(&p->aVar[i], uuid);
+}
+
+void
+mem_set_dec1(struct Vdbe *p, int i, const decimal_t *dec)
+{
+	mem_set_dec(&p->aVar[i], dec);
 }
 
 int
@@ -421,7 +502,8 @@ sql_bind_int64(struct Vdbe *p, int i, int64_t iValue)
 		return -1;
 	}
 	int rc = sql_bind_type(p, i, "integer");
-	mem_set_int(&p->aVar[i - 1], iValue);
+	printf("%ld\n", iValue);
+	//mem_set_int(&p->aVar[i - 1], iValue);
 	return rc;
 }
 
@@ -434,7 +516,8 @@ sql_bind_uint64(struct Vdbe *p, int i, uint64_t value)
 		return -1;
 	}
 	int rc = sql_bind_type(p, i, "integer");
-	mem_set_uint(&p->aVar[i - 1], value);
+	printf("%ld\n", value);
+	//mem_set_uint(&p->aVar[i - 1], value);
 	return rc;
 }
 
@@ -460,7 +543,8 @@ sql_bind_ptr(struct Vdbe *p, int i, void *ptr)
 	}
 	if (rc == 0) {
 		rc = sql_bind_type(p, i, "varbinary");
-		mem_set_ptr(&p->aVar[i - 1], ptr);
+		printf("%p\n", ptr);
+		//mem_set_ptr(&p->aVar[i - 1], ptr);
 	}
 	return rc;
 }
@@ -468,28 +552,32 @@ sql_bind_ptr(struct Vdbe *p, int i, void *ptr)
 int
 sql_bind_str_static(struct Vdbe *vdbe, int i, const char *str, uint32_t len)
 {
-	mem_set_str_static(&vdbe->aVar[i - 1], (char *)str, len);
+	printf("%s %d\n", str, len);
+	//mem_set_str_static(&vdbe->aVar[i - 1], (char *)str, len);
 	return sql_bind_type(vdbe, i, "text");
 }
 
 int
 sql_bind_bin_static(struct Vdbe *vdbe, int i, const char *str, uint32_t size)
 {
-	mem_set_bin_static(&vdbe->aVar[i - 1], (char *)str, size);
+	//mem_set_bin_static(&vdbe->aVar[i - 1], (char *)str, size);
+	printf("%s %d\n", str, size);
 	return sql_bind_type(vdbe, i, "text");
 }
 
 int
 sql_bind_array_static(struct Vdbe *vdbe, int i, const char *str, uint32_t size)
 {
-	mem_set_array_static(&vdbe->aVar[i - 1], (char *)str, size);
+	//mem_set_array_static(&vdbe->aVar[i - 1], (char *)str, size);
+	printf("%s %d\n", str, size);
 	return sql_bind_type(vdbe, i, "array");
 }
 
 int
 sql_bind_map_static(struct Vdbe *vdbe, int i, const char *str, uint32_t size)
 {
-	mem_set_map_static(&vdbe->aVar[i - 1], (char *)str, size);
+	//mem_set_map_static(&vdbe->aVar[i - 1], (char *)str, size);
+	printf("%s %d\n", str, size);
 	return sql_bind_type(vdbe, i, "map");
 }
 
@@ -504,7 +592,8 @@ sql_bind_uuid(struct Vdbe *p, int i, const struct tt_uuid *uuid)
 	}
 	if (rc != 0 || sql_bind_type(p, i, "uuid") != 0)
 		return -1;
-	mem_set_uuid(&p->aVar[i - 1], uuid);
+	printf("%ld\n", (long int) uuid);
+	//mem_set_uuid(&p->aVar[i - 1], uuid);
 	return 0;
 }
 
@@ -519,7 +608,8 @@ sql_bind_dec(struct Vdbe *p, int i, const decimal_t *dec)
 	}
 	if (rc != 0 || sql_bind_type(p, i, "decimal") != 0)
 		return -1;
-	mem_set_dec(&p->aVar[i - 1], dec);
+	printf("%ld\n", (long int) dec);
+	//mem_set_dec(&p->aVar[i - 1], dec);
 	return 0;
 }
 
@@ -534,7 +624,8 @@ sql_bind_datetime(struct Vdbe *p, int i, const struct datetime *dt)
 	}
 	if (rc != 0 || sql_bind_type(p, i, "datetime") != 0)
 		return -1;
-	mem_set_datetime(&p->aVar[i - 1], dt);
+	printf("%ld\n", (long int) dt);
+	//mem_set_datetime(&p->aVar[i - 1], dt);
 	return 0;
 }
 
@@ -549,7 +640,8 @@ sql_bind_interval(struct Vdbe *p, int i, const struct interval *itv)
 	}
 	if (rc != 0 || sql_bind_type(p, i, "interval") != 0)
 		return -1;
-	mem_set_interval(&p->aVar[i - 1], itv);
+	printf("%ld\n", (long int) itv);
+	//mem_set_interval(&p->aVar[i - 1], itv);
 	return 0;
 }
 
@@ -594,6 +686,30 @@ sql_get_original_names_len(Vdbe * p, int i)
 	return p->original_names_len[i];
 }
 
+int sql_set_bind(struct Vdbe * stmt, const char *name, uint32_t name_len, int i) {
+	stmt->bind_names[i] = name;
+	stmt->bind_names_len[i] = name_len;
+	return 0;
+}
+
+int sql_set_bind_count(struct Vdbe * stmt, int bind_count) {
+	stmt->count_bind_names = bind_count;
+	printf("OKEY %d\n", stmt->count_bind_names);
+	stmt->bind_names = malloc(sizeof(char*) * bind_count);
+	stmt->bind_names_len = malloc(sizeof(u32*) * bind_count);
+	return 0;
+}
+
+int sql_free_bind(struct Vdbe * stmt) {
+	free(stmt->bind_names);
+	free(stmt->bind_names_len);
+	return 0;
+}
+
+int sql_print(const struct Vdbe * stmt) {
+	printf("IM alive %d\n", stmt->count_bind_names);
+	return 0;
+}
 /*
  * Given a wildcard parameter name, return the index of the variable
  * with that name.  If there is no variable with the given name,

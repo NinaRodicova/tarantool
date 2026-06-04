@@ -191,6 +191,84 @@ sql_get_original_names_len2(struct Vdbe * stmt, int i)
 	return sql_get_original_names_len(stmt, i);
 }
 
+void
+mem_set_double2(struct Vdbe *p, int i, double rValue)
+{
+	mem_set_double1(p, i, rValue);
+}
+
+void
+mem_set_boolean2(struct Vdbe *p, int i, bool value)
+{
+	mem_set_boolean1(p, i, value);
+}
+
+void
+mem_set_datetime2(struct Vdbe *p, int i, const struct datetime *dt)
+{
+	mem_set_datetime1(p, i, dt);
+}
+
+void
+mem_set_interval2(struct Vdbe *p, int i, const struct interval *itv)
+{
+	mem_set_interval1(p, i, itv);
+}
+
+void
+mem_set_int2(struct Vdbe *stmt, uint32_t i, int64_t value)
+{
+	mem_set_int1(stmt, i, value);
+}
+
+void
+mem_set_uint2(struct Vdbe *stmt, uint32_t i, uint64_t val)
+{
+	mem_set_uint1(stmt, i, val);
+}
+
+void
+mem_set_ptr2(struct Vdbe *stmt, uint32_t i, void *ptr)
+{
+	mem_set_ptr1(stmt, i, ptr);
+}
+
+void
+mem_set_str_static2(struct Vdbe *vdbe, int i, const char *str, uint32_t len)
+{
+	mem_set_str_static1(vdbe, i, (char *)str, len);
+}
+
+void
+mem_set_bin_static2(struct Vdbe *vdbe, int i, const char *str, uint32_t size)
+{
+	mem_set_bin_static1(vdbe, i, (char *)str, size);
+}
+
+void
+mem_set_array_static2(struct Vdbe *vdbe, int i, const char *str, uint32_t size)
+{
+	mem_set_array_static1(vdbe, i, (char *)str, size);
+}
+
+void
+mem_set_map_static2(struct Vdbe *vdbe, int i, const char *str, uint32_t size)
+{
+	mem_set_map_static1(vdbe, i, (char *)str, size);
+}
+
+void
+mem_set_uuid2(struct Vdbe *p, int i, const struct tt_uuid *uuid)
+{
+	mem_set_uuid1(p, i, uuid);
+}
+
+void
+mem_set_dec2(struct Vdbe *p, int i, const decimal_t *dec)
+{
+	mem_set_dec1(p, i, dec);
+}
+
 int
 sql_bind_column(struct Vdbe *stmt, const struct sql_bind *p, uint32_t pos)
 {

@@ -314,7 +314,7 @@ sql_vsnprintf(int, char *, const char *, va_list);
  */
 int
 sql_stmt_compile(const char *sql, int bytes_count, struct Vdbe *re_prepared,
-		 struct Vdbe **stmt, const char **sql_tail);
+		 struct Vdbe **stmt, const char **sql_tail, uint32_t bind_count, const char **bind_names, uint32_t *bind_names_len);
 
 /** This is the top-level implementation of sqlStep(). */
 int
@@ -579,6 +579,45 @@ sql_bind_ptr(struct Vdbe *v, int i, void *ptr);
 int
 sql_init_db(sql **db);
 
+void
+mem_set_double1(struct Vdbe *p, int i, double rValue);
+
+void
+mem_set_boolean1(struct Vdbe *p, int i, bool value);
+
+void
+mem_set_datetime1(struct Vdbe *p, int i, const struct datetime *dt);
+
+void
+mem_set_interval1(struct Vdbe *p, int i, const struct interval *itv);
+
+void
+mem_set_int1(struct Vdbe *stmt, uint32_t i, int64_t value);
+
+void
+mem_set_uint1(struct Vdbe *stmt, uint32_t i, uint64_t val);
+
+void
+mem_set_ptr1(struct Vdbe *stmt, uint32_t i, void *ptr);
+
+void
+mem_set_str_static1(struct Vdbe *vdbe, int i, const char *str, uint32_t len);
+
+void
+mem_set_bin_static1(struct Vdbe *vdbe, int i, const char *str, uint32_t size);
+
+void
+mem_set_array_static1(struct Vdbe *vdbe, int i, const char *str, uint32_t size);
+
+void
+mem_set_map_static1(struct Vdbe *vdbe, int i, const char *str, uint32_t size);
+
+void
+mem_set_uuid1(struct Vdbe *p, int i, const struct tt_uuid *uuid);
+
+void
+mem_set_dec1(struct Vdbe *p, int i, const decimal_t *dec);
+
 /**
  * Return count of original names in request.
 */
@@ -596,6 +635,14 @@ sql_get_original_names(struct Vdbe * stmt, int i);
 */
 uint32_t
 sql_get_original_names_len(struct Vdbe * stmt, int i);
+
+int sql_set_bind(struct Vdbe * stmt, const char *name, uint32_t name_len, int i);
+
+int sql_free_bind(struct Vdbe * stmt);
+
+int sql_set_bind_count(struct Vdbe * stmt, int bind_count);
+
+int sql_print(const struct Vdbe * stmt);
 
 /**
  * Get number of the named parameter in the prepared sql
@@ -2116,6 +2163,10 @@ struct Parse {
 	u32 *original_names_len;
 	int count_original_names;
 	int max_count_original_names;
+
+	const char **bind_names;
+	uint32_t *bind_names_len;
+	uint32_t count_bind_names;
 	/**
 	 * Members of this union are valid only
 	 * if parse_only is set to true.

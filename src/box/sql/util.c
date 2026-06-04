@@ -1115,6 +1115,7 @@ sqlVListNumToName(VList * pIn, int iVal)
 	mx = pIn[1];
 	i = 2;
 	do {
+		printf("ALL %s\n", (char *)&pIn[i + 2]);
 		if (pIn[i] == iVal)
 			return (char *)&pIn[i + 2];
 		i += pIn[i + 1];

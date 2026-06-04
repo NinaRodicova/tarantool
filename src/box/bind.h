@@ -47,6 +47,45 @@ extern "C" {
 
 struct Vdbe;
 
+void
+mem_set_double2(struct Vdbe *p, int i, double rValue);
+
+void
+mem_set_boolean2(struct Vdbe *p, int i, bool value);
+
+void
+mem_set_datetime2(struct Vdbe *p, int i, const struct datetime *dt);
+
+void
+mem_set_interval2(struct Vdbe *p, int i, const struct interval *itv);
+
+void
+mem_set_int2(struct Vdbe *stmt, uint32_t i, int64_t value);
+
+void
+mem_set_uint2(struct Vdbe *stmt, uint32_t i, uint64_t val);
+
+void
+mem_set_ptr2(struct Vdbe *stmt, uint32_t i, void *ptr);
+
+void
+mem_set_str_static2(struct Vdbe *vdbe, int i, const char *str, uint32_t len);
+
+void
+mem_set_bin_static2(struct Vdbe *vdbe, int i, const char *str, uint32_t size);
+
+void
+mem_set_array_static2(struct Vdbe *vdbe, int i, const char *str, uint32_t size);
+
+void
+mem_set_map_static2(struct Vdbe *vdbe, int i, const char *str, uint32_t size);
+
+void
+mem_set_uuid2(struct Vdbe *p, int i, const struct tt_uuid *uuid);
+
+void
+mem_set_dec2(struct Vdbe *p, int i, const decimal_t *dec);
+
 /**
  * Return count of original names in request.
 */
@@ -190,6 +229,69 @@ sql_bind(struct Vdbe *stmt, const struct sql_bind *bind, uint32_t bind_count)
 					}
 				}
 			}
+		}
+	}
+	for (uint32_t i = 0; i < bind_count; i++) {
+		printf("BIND %s\n", bind[i].name);
+		const struct sql_bind *p = &bind[i];
+		switch (p->type) {
+		case MP_INT:
+			mem_set_int2(stmt, i, (int64_t) p->i64);
+			break;
+		case MP_UINT:
+			mem_set_uint2(stmt, i, p->u64);
+			break;
+		case MP_BOOL:
+			mem_set_boolean2(stmt, i, p->b);
+			break;
+		case MP_DOUBLE:
+		case MP_FLOAT:
+			mem_set_double2(stmt, i, p->d);
+			break;
+		case MP_STR:
+			/*
+			* Parameters are allocated within message pack,
+			* received from the iproto thread. IProto thread
+			* now is waiting for the response and it will not
+			* free the packet until sql_stmt_finalize. So
+			* there is no need to copy the packet and we can
+			* use SQL_STATIC.
+			*/
+			mem_set_str_static2(stmt, i, p->s, p->bytes);
+			break;
+		case MP_NIL:
+			break;
+		case MP_BIN:
+			mem_set_bin_static2(stmt, i, p->s, p->bytes);
+			break;
+		case MP_ARRAY:
+			mem_set_array_static2(stmt, i, p->s, p->bytes);
+			break;
+		case MP_MAP:
+			mem_set_map_static2(stmt, i, p->s, p->bytes);
+			break;
+		case MP_EXT:
+			switch (p->ext_type) {
+			case MP_UUID:
+				mem_set_uuid2(stmt, i, &p->uuid);
+				break;
+			case MP_DECIMAL:
+				mem_set_dec2(stmt, i, &p->dec);
+				break;
+			case MP_DATETIME:
+				mem_set_datetime2(stmt, i, &p->dt);
+				break;
+			case MP_INTERVAL:
+				mem_set_interval2(stmt, i, &p->itv);
+				break;
+			default:
+				unreachable();
+				break;
+			}
+			break;
+		default:
+			unreachable();
+			break;
 		}
 	}
 	return 0;

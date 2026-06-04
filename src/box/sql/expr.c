@@ -1199,6 +1199,7 @@ sqlExprAssignVarNumber(Parse * pParse, Expr * pExpr, u32 n)
 {
 	const char *z;
 	ynVar x;
+	ynVar x2 = 0;
 
 	if (pExpr == 0)
 		return;
@@ -1238,6 +1239,7 @@ sqlExprAssignVarNumber(Parse * pParse, Expr * pExpr, u32 n)
 			bool is_neg;
 			bool is_ok = 0 == sql_atoi64(&z[1], &i, &is_neg, n - 1);
 			x = (ynVar) i;
+			x2 = x;
 			if (is_neg || i < 1) {
 				diag_set(ClientError, ER_SQL_PARSER_GENERIC,
 					 "Index of binding slots must start "\
@@ -1251,6 +1253,7 @@ sqlExprAssignVarNumber(Parse * pParse, Expr * pExpr, u32 n)
 				pParse->is_aborted = true;
 				return;
 			}
+
 			if (x > pParse->nVar) {
 				pParse->nVar = (int)x;
 				doAdd = 1;
@@ -1268,17 +1271,27 @@ sqlExprAssignVarNumber(Parse * pParse, Expr * pExpr, u32 n)
 				x = (ynVar) (++pParse->nVar);
 				doAdd = 1;
 			}
+			for (uint32_t j = 0; j < pParse->count_bind_names; j++) {
+				if (strcmp(pParse->bind_names[j], z) == 0) {
+					printf("strcmp %s %d\n", pParse->bind_names[j], j + 1);
+					x2 = (ynVar) (j + 1);
+					break;
+				}
+			}
+			
 		}
 		if (doAdd) {
 			pParse->pVList = sqlVListAdd(pParse->pVList, z, n, x);
 		}
 	}
-	pExpr->iColumn = x;
+	pExpr->iColumn = x2;
+	printf("XXXX %d %d\n", x, x2);
 	if (x > SQL_BIND_PARAMETER_MAX) {
 		diag_set(ClientError, ER_SQL_BIND_PARAMETER_MAX,
 			 SQL_BIND_PARAMETER_MAX);
 		pParse->is_aborted = true;
 	}
+	pParse->nVar = pParse->count_bind_names;
 }
 
 struct Expr *
@@ -3626,6 +3639,15 @@ exprCodeVector(Parse * pParse, Expr * p, int *piFreeable)
 	return iResult;
 }
 
+const char *
+sqlVListNumToName2(Parse * pParse, int ival)
+{
+	if (pParse->count_bind_names < (uint32_t) ival) {
+		return NULL;
+	}
+	return pParse->bind_names[ival - 1];
+}
+
 /*
  * Generate code into the current Vdbe to evaluate the given
  * expression.  Attempt to store the results in register "target".
@@ -3761,9 +3783,15 @@ sqlExprCodeTarget(Parse * pParse, Expr * pExpr, int target)
 			sqlVdbeAddOp2(v, OP_Variable, pExpr->iColumn,
 					  target);
 			if (pExpr->u.zToken[1] != 0) {
+				/*
 				const char *z =
 				    sqlVListNumToName(pParse->pVList,
 							  pExpr->iColumn);
+				*/
+				const char *z =
+				    sqlVListNumToName2(pParse,
+							  pExpr->iColumn);
+				printf("HERE %s\n", z);
 				assert(pExpr->u.zToken[0] == '$'
 				       || strcmp(pExpr->u.zToken, z) == 0);
 				pParse->pVList[0] = 0;	/* Indicate VList may no longer be enlarged */

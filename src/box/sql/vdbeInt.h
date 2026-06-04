@@ -308,6 +308,10 @@ struct Vdbe {
 	u32 *original_names_len;
 	int count_original_names;
 	int max_count_original_names;
+
+	const char **bind_names;
+	u32 *bind_names_len;
+	int count_bind_names;
 };
 
 /*
