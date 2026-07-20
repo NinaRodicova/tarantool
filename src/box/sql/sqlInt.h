@@ -487,6 +487,9 @@ sql_unbind(struct Vdbe *stmt);
 void
 sql_reset_autoinc_id_list(struct Vdbe *stmt);
 
+void
+sql_set_vdbe(struct Vdbe *stmt, const char **bind_names, uint32_t bind_count);
+
 /** Perform double parameter binding for the sql statement. */
 int
 sql_bind_double(struct Vdbe *v, int i, double value);

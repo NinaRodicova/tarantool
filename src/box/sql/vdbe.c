@@ -358,6 +358,8 @@ vdbe_field_ref_fetch(struct vdbe_field_ref *field_ref, uint32_t fieldno,
  */
 int sqlVdbeExec(Vdbe *p)
 {
+	printf("Hello\n");
+	p->last_p1 = 0;
 	Op *aOp = p->aOp;          /* Copy of p->aOp */
 	Op *pOp = aOp;             /* Current operation */
 #if defined(SQL_DEBUG)
@@ -461,7 +463,7 @@ int sqlVdbeExec(Vdbe *p)
 #if defined(SQL_DEBUG)
 		pOrigOp = pOp;
 #endif
-
+		printf("%d\n", pOp->opcode);
 		switch( pOp->opcode) {
 
 /*****************************************************************************
@@ -860,10 +862,23 @@ case OP_Blob: {                /* out2 */
  * The P4 value is used by sql_bind_parameter_name().
  */
 case OP_Variable: {            /* out2 */
+	printf("Variable\n");
 	Mem *pVar;       /* Value being transferred */
-
-	assert(pOp->p1>0 && pOp->p1<=p->nVar);
-	assert(pOp->p4.z==0 || pOp->p4.z==sqlVListNumToName(p->pVList,pOp->p1));
+	if (pOp->p4.z != NULL) {
+		for (uint32_t i = 0; i < p->count_bind_names; i++) {
+			if (p->bind_names[i] != NULL)
+				if (strcmp(p->bind_names[i], pOp->p4.z) == 0) {
+					pOp->p1 = ++i;
+					break; 
+				}
+		}
+	}
+	else {
+		pOp->p1 = p->last_p1 + 1;
+	}
+	//assert(pOp->p1>0 && pOp->p1<=p->nVar);
+	assert(pOp->p1>0);
+	//assert(pOp->p4.z==0 || pOp->p4.z==sqlVListNumToName(p->pVList,pOp->p1));
 	pVar = &p->aVar[pOp->p1 - 1];
 	if (sqlVdbeMemTooBig(pVar)) {
 		goto too_big;
@@ -871,6 +886,7 @@ case OP_Variable: {            /* out2 */
 	pOut = vdbe_prepare_null_out(p, pOp->p2);
 	mem_copy_as_ephemeral(pOut, pVar);
 	UPDATE_MAX_BLOBSIZE(pOut);
+	p->last_p1 = pOp->p1;
 	break;
 }
 
@@ -2719,6 +2735,7 @@ case OP_SeekGT: {       /* jump, in3 */
  */
 case OP_SeekLE:         /* jump, in3 */
 case OP_SeekGE: {       /* jump, in3 */
+	printf("p1 p2 %d %d\n", pOp->p1, pOp->p2);
 	bool is_le = pOp->opcode == OP_SeekLE;
 	struct VdbeCursor *cur = p->apCsr[pOp->p1];
 #ifdef SQL_DEBUG
@@ -4519,6 +4536,8 @@ default: {          /* This is really OP_Noop and OP_Explain */
 	/* If we reach this point, it means that execution is finished with
 	 * an error of some kind.
 	 */
+	free(p->bind_names);
+	p->count_bind_names = 0;
 abort_due_to_error:
 	rc = -1;
 	p->is_aborted = true;

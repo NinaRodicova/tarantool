@@ -130,6 +130,10 @@ sql_bind_decode(struct sql_bind *bind, int i, const char **packet);
 int
 sql_bind_column(struct Vdbe *stmt, const struct sql_bind *p, uint32_t pos);
 
+
+void
+set_vdbe(struct Vdbe *stmt, const char **bind_names, uint32_t bind_count);
+
 /**
  * Bind parameter values to the prepared statement.
  * @param stmt Prepared statement.
@@ -144,10 +148,14 @@ sql_bind(struct Vdbe *stmt, const struct sql_bind *bind, uint32_t bind_count)
 {
 	assert(stmt != NULL);
 	uint32_t pos = 1;
+
+	const char **bind_names = (const char **) malloc(sizeof(char *) * bind_count);
 	for (uint32_t i = 0; i < bind_count; pos = ++i + 1) {
+		bind_names[i] = bind[i].name;
 		if (sql_bind_column(stmt, &bind[i], pos) != 0)
 			return -1;
 	}
+	set_vdbe(stmt, bind_names, bind_count);
 	return 0;
 }
 

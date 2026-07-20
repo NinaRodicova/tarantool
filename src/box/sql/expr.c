@@ -1215,7 +1215,8 @@ sqlExprAssignVarNumber(Parse * pParse, Expr * pExpr, u32 n)
 	if (z[1] == 0) {
 		/* Wildcard of the form "?".  Assign the next variable number */
 		assert(z[0] == '?');
-		x = (ynVar) (++pParse->nVar);
+		pParse->nVar++;
+		x = (ynVar) (0);
 	} else {
 		int doAdd = 0;
 		assert(z[0] != '?');

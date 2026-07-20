@@ -306,6 +306,9 @@ struct Vdbe {
 	struct txn_savepoint *anonymous_savepoint;
 	/* The statement ID in the prepared statement cache. */
 	uint32_t id;
+	ynVar last_p1;
+	uint32_t count_bind_names;
+	const char **bind_names;
 };
 
 /*
