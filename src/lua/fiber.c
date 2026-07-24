@@ -39,6 +39,11 @@
 
 #include <lua.h>
 #include <lauxlib.h>
+#include "lua/msgpack.h" /* luaL_msgpack_default */
+#include <msgpuck.h>
+#include "mpstream/mpstream.h"
+#include "cord_buf.h"
+#include <small/ibuf.h>
 
 static_assert(FIBER_LUA_NOREF == LUA_NOREF, "FIBER_LUA_NOREF is ok");
 
@@ -100,8 +105,14 @@ static int
 lbox_fiber_on_stop(struct trigger *trigger, void *event)
 {
 	struct fiber *f = event;
-	luaL_unref(tarantool_L, LUA_REGISTRYINDEX, f->storage.lua.storage_ref);
-	f->storage.lua.storage_ref = FIBER_LUA_NOREF;
+	if (f->storage.lua.storage_ref != FIBER_LUA_NOREF) {
+		luaL_unref(tarantool_L, LUA_REGISTRYINDEX, f->storage.lua.storage_ref);
+		f->storage.lua.storage_ref = FIBER_LUA_NOREF;
+	}
+	if (f->meta_ref != FIBER_LUA_NOREF) {
+		luaL_unref(tarantool_L, LUA_REGISTRYINDEX, f->meta_ref);
+		f->meta_ref = FIBER_LUA_NOREF;
+	}
 	trigger_clear(trigger);
 	free(trigger);
 	return 0;
@@ -169,6 +180,17 @@ lbox_checkfiber(struct lua_State *L, int index)
 		luaT_error(L);
 	}
 	return f;
+}
+
+static int
+lbox_fiber_get_meta(struct lua_State *L)
+{
+	lua_rawgeti(L, LUA_REGISTRYINDEX, fiber()->meta_ref);
+	lua_getfield(L, -1, "meta1");
+	const char *meta = lua_tostring(L, -1);
+	//meta = fiber()->meta;
+	luamp_decode(L, luaL_msgpack_default, &meta);
+	return 1;
 }
 
 static int
@@ -670,6 +692,52 @@ lbox_fiber_name(struct lua_State *L)
 }
 
 static int
+lbox_fiber_set_meta(struct lua_State *L)
+{
+	struct fiber *f = fiber();
+	int index = lua_gettop(L);
+	if (index < 1)
+		return luaL_error(L, "msgpack.encode: a Lua object expected");
+	struct ibuf *buf;
+	buf = cord_ibuf_take();
+	struct mpstream stream;
+	mpstream_init(&stream, buf, ibuf_reserve_cb, ibuf_alloc_cb,
+		      luamp_error, L);
+	luamp_encode(L, luaL_msgpack_default, &stream, index);
+	mpstream_flush(&stream);
+	size_t used = ibuf_used(buf);
+	char *data = (char *) malloc(used);
+	memcpy(data, buf->buf, used);
+	const char *meta = data;
+	cord_ibuf_drop(buf);
+
+	//struct fiber *f = lbox_checkfiber(L, 1);
+	int meta_ref = f->meta_ref;
+	if (meta_ref != FIBER_LUA_NOREF) {
+		//unref
+	}
+	if (meta_ref == FIBER_LUA_NOREF) {
+		if (f->flags & FIBER_IS_DEAD) {
+			diag_set(IllegalParams, "the fiber is dead");
+			luaT_error(L);
+		}
+		struct trigger *on_stop = xmalloc(sizeof(*on_stop));
+		trigger_create(on_stop, lbox_fiber_on_stop, NULL,
+			       (trigger_f0)free);
+		trigger_add(&f->on_stop, on_stop);
+		lua_newtable(L); /* create local storage on demand */
+		meta_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+		f->meta_ref = meta_ref;
+	}
+	lua_rawgeti(L, LUA_REGISTRYINDEX, meta_ref);
+	lua_pushliteral(L, "meta");
+	lua_pushstring(L, meta);
+	lua_settable(L, -3);
+	fiber_set_meta(f, meta);
+	return 0;
+}
+
+static int
 lbox_fiber_storage(struct lua_State *L)
 {
 	struct fiber *f = lbox_checkfiber(L, 1);
@@ -1067,6 +1135,8 @@ lbox_fiber_set_max_slice(struct lua_State *L)
 }
 
 static const struct luaL_Reg lbox_fiber_meta [] = {
+	{"get_meta", lbox_fiber_get_meta},
+	{"set_meta", lbox_fiber_set_meta},
 	{"id", lbox_fiber_id},
 	{"name", lbox_fiber_name},
 	{"cancel", lbox_fiber_cancel},
@@ -1099,6 +1169,8 @@ static const struct luaL_Reg fiberlib[] = {
 	{"sleep", lbox_fiber_sleep},
 	{"yield", lbox_fiber_yield},
 	{"self", lbox_fiber_self},
+	{"get_meta", lbox_fiber_get_meta},
+	{"set_meta", lbox_fiber_set_meta},
 	{"id", lbox_fiber_id},
 	{"find", lbox_fiber_find},
 	{"kill", lbox_fiber_cancel},

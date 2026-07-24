@@ -1041,6 +1041,10 @@ say_format_json(struct log *log, char *buf, int len, int level,
 	if (fiber() && fiber()->fid != FIBER_ID_SCHED) {
 		SNPRINT(total, snprintf, buf, len, ", \"fiber_id\": %llu, ",
 			(long long)fiber()->fid);
+		SNPRINT(total, snprintf, buf, len, ", \"fiber_get_meta\": %llu, ",
+			(long long)fiber()->meta);
+		SNPRINT(total, snprintf, buf, len, ", \"fiber_set_meta\": %llu, ",
+			(long long)fiber()->meta);
 		SNPRINT(total, snprintf, buf, len, "\"fiber_name\": \"");
 		SNPRINT(total, escape, buf, len, fiber()->name);
 		SNPRINT(total, snprintf, buf, len, "\"");

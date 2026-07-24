@@ -750,10 +750,8 @@ luaL_tofield(struct lua_State *L, struct luaL_serializer *cfg, int index,
 	field->type = MP_NIL;
 	field->ext_type = MP_UNKNOWN_EXTENSION;
 	field->compact = false;
-
 	if (index < 0)
 		index = lua_gettop(L) + index + 1;
-
 	double num;
 	double intpart;
 	size_t size;

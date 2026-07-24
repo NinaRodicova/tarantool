@@ -696,7 +696,6 @@ coro_transfer (coro_context *prev, coro_context *next)
       if (prev->fiber == 0 || prev->fiber == (void *)0x1e00)
         prev->fiber = ConvertThreadToFiber (0);
     }
-
   SwitchToFiber (next->fiber);
 }
 

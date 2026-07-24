@@ -515,6 +515,7 @@ fiber_call_impl(struct fiber *callee)
 				callee->stack,
 				callee->stack_size);
 	coro_transfer(&caller->ctx, &callee->ctx);
+
 	ASAN_FINISH_SWITCH_FIBER(asan_state);
 }
 
@@ -1063,6 +1064,7 @@ fiber_recycle(struct fiber *fiber)
 	memset(&fiber->storage, 0, sizeof(fiber->storage));
 	fiber->storage.lua.storage_ref = FIBER_LUA_NOREF;
 	fiber->storage.lua.fid_ref = FIBER_LUA_NOREF;
+	fiber->meta_ref = FIBER_LUA_NOREF;
 	unregister_fid(fiber);
 	fiber->fid = 0;
 	fiber->gc_initial_size = 0;
@@ -1240,12 +1242,28 @@ fiber_set_name_n(struct fiber *fiber, const char *name, uint32_t len)
 	fiber->name[size] = 0;
 }
 
+void
+fiber_set_meta(struct fiber *fiber, const char *meta)
+{
+	if (fiber == NULL)
+		fiber = fiber();
+	fiber->meta = meta;
+}
+
 const char *
 fiber_name(const struct fiber *fiber)
 {
 	if (fiber == NULL)
 		fiber = fiber();
 	return fiber->name;
+}
+
+const char *
+fiber_get_meta(const struct fiber *fiber)
+{
+	if (fiber == NULL)
+		fiber = fiber();
+	return fiber->meta;
 }
 
 uint64_t
@@ -1569,6 +1587,8 @@ fiber_new_ex(const char *name, const struct fiber_attr *fiber_attr,
 		memset(fiber, 0, sizeof(struct fiber));
 		fiber->storage.lua.storage_ref = FIBER_LUA_NOREF;
 		fiber->storage.lua.fid_ref = FIBER_LUA_NOREF;
+		lua_rawgeti(L, LUA_REGISTRYINDEX, fiber()->meta_ref);
+		fiber->meta_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
 		if (fiber_stack_create(fiber, fiber_attr, &cord()->slabc)) {
 			mempool_free(&cord->fiber_mempool, fiber);
@@ -1590,6 +1610,8 @@ fiber_new_ex(const char *name, const struct fiber_attr *fiber_attr,
 	fiber->f = f;
 	fiber->fid = cord->next_fid;
 	fiber_set_name(fiber, name);
+	fiber_set_meta(fiber, NULL);
+	printf("%ld %ld\n", (long int) fiber->meta, fiber->fid);
 	register_fid(fiber);
 	fiber->max_slice = zero_slice;
 	fiber->csw = 0;
@@ -1643,6 +1665,8 @@ fiber_new_system(const char *name, fiber_func f)
 static void
 fiber_destroy(struct cord *cord, struct fiber *f)
 {
+	//if (f->meta != NULL)
+	//	free(f->meta);
 	assert(f != cord->fiber);
 	trigger_destroy(&f->on_yield);
 	trigger_destroy(&f->on_stop);

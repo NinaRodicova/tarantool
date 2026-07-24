@@ -98,6 +98,8 @@ local special_fields = {
     "line",
     "cord_name",
     "fiber_name",
+    "fiber_get_meta",
+    "fiber_set_meta",
     "fiber_id",
     "error_msg"
 }

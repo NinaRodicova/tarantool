@@ -461,6 +461,9 @@ fiber_reschedule(void);
 API_EXPORT void
 fiber_set_name_n(struct fiber *fiber, const char *name, uint32_t len);
 
+API_EXPORT void
+fiber_set_meta(struct fiber *fiber, const char *meta);
+
 /**
  * Get fiber name.
  * @param fiber Target fiber, if it's NULL the current fiber is used.
@@ -468,6 +471,9 @@ fiber_set_name_n(struct fiber *fiber, const char *name, uint32_t len);
  */
 API_EXPORT const char *
 fiber_name(const struct fiber *fiber);
+
+API_EXPORT const char *
+fiber_get_meta(const struct fiber *fiber);
 
 /**
  * Get fiber id.
@@ -671,6 +677,8 @@ struct fiber {
 	int csw;
 	/** Fiber id. */
 	uint64_t fid;
+	const char *meta;
+	int meta_ref;
 	/** Fiber flags */
 	uint32_t flags;
 	struct clock_stat clock_stat;
