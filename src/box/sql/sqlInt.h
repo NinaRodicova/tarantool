@@ -213,6 +213,7 @@
 #include <assert.h>
 #include <stddef.h>
 
+struct sql_bind;
 typedef long long int sql_int64;
 typedef unsigned long long int sql_uint64;
 typedef sql_int64 sql_int64;
@@ -309,7 +310,7 @@ sql_stmt_compile(const char *sql, struct Vdbe *re_prepared);
 
 /** This is the top-level implementation of sqlStep(). */
 int
-sql_step(struct Vdbe *v);
+sql_step(struct Vdbe *v, const struct sql_bind *bind, uint32_t bind_count);
 
 /** Encode the result of an SQL statement in msgpack. */
 char *
@@ -475,7 +476,7 @@ sql_reset_autoinc_id_list(struct Vdbe *stmt);
 
 /** Perform double parameter binding for the sql statement. */
 int
-sql_bind_double(struct Vdbe *v, int i, double value);
+sql_bind_double(struct Vdbe *v, int i);
 
 /**
  * Perform boolean parameter binding for the prepared sql
@@ -486,19 +487,19 @@ sql_bind_double(struct Vdbe *v, int i, double value);
  * @retval 0 On Success, not 0 otherwise.
  */
 int
-sql_bind_boolean(struct Vdbe *v, int i, bool value);
+sql_bind_boolean(struct Vdbe *v, int i);
 
 /** Perform integer parameter binding for the sql statement. */
 int
-sql_bind_int(struct Vdbe *v, int i, int value);
+sql_bind_int(struct Vdbe *v, int i);
 
 /** Perform 64-bit negative integer parameter binding for the sql statement. */
 int
-sql_bind_int64(struct Vdbe *v, int i, int64_t value);
+sql_bind_int64(struct Vdbe *v, int i);
 
 /** Perform 64-bit unsigned integer parameter binding for the sql statement. */
 int
-sql_bind_uint64(struct Vdbe *v, int i, uint64_t value);
+sql_bind_uint64(struct Vdbe *v, int i);
 
 /** Perform NULL parameter binding for the sql statement. */
 int
@@ -506,35 +507,35 @@ sql_bind_null(struct Vdbe *v, int i);
 
 /** Perform string parameter binding for the sql statement. */
 int
-sql_bind_str_static(struct Vdbe *v, int i, const char *str, uint32_t len);
+sql_bind_str_static(struct Vdbe *v, int i);
 
 /** Perform binary string parameter binding for the sql statement. */
 int
-sql_bind_bin_static(struct Vdbe *v, int i, const char *str, uint32_t size);
+sql_bind_bin_static(struct Vdbe *v, int i);
 
 /** Perform array parameter binding for the sql statement. */
 int
-sql_bind_array_static(struct Vdbe *v, int i, const char *str, uint32_t size);
+sql_bind_array_static(struct Vdbe *v, int i);
 
 /** Perform map parameter binding for the sql statement. */
 int
-sql_bind_map_static(struct Vdbe *v, int i, const char *str, uint32_t size);
+sql_bind_map_static(struct Vdbe *v, int i);
 
 /** Perform UUID parameter binding for the sql statement. */
 int
-sql_bind_uuid(struct Vdbe *v, int i, const struct tt_uuid *uuid);
+sql_bind_uuid(struct Vdbe *v, int i);
 
 /** Perform decimal parameter binding for the sql statement. */
 int
-sql_bind_dec(struct Vdbe *v, int i, const decimal_t *dec);
+sql_bind_dec(struct Vdbe *v, int i);
 
 /** Perform DATETIME parameter binding for the sql statement. */
 int
-sql_bind_datetime(struct Vdbe *v, int i, const struct datetime *dt);
+sql_bind_datetime(struct Vdbe *v, int i);
 
 /** Perform INTERVAL parameter binding for the SQL statement. */
 int
-sql_bind_interval(struct Vdbe *v, int i, const struct interval *itv);
+sql_bind_interval(struct Vdbe *v, int i);
 
 /**
  * Return the number of wildcards that should be bound to.
@@ -1930,6 +1931,14 @@ struct Parse {
 	int iSelectId;		/* ID of current select for EXPLAIN output */
 	int iNextSelectId;	/* Next available select ID for EXPLAIN output */
 	VList *pVList;		/* Mapping between variable names and numbers */
+	/**
+	 * Last name before anonymous variables (?)
+	 */
+	const char *anon_base_var_name;
+	/**
+	 * Count anonymous variables (?) from last name
+	 */
+	int anon_offset;
 	Vdbe *pReprepare;	/* VM being reprepared (sqlReprepare()) */
 	TriggerPrg *pTriggerPrg;	/* Linked list of coded triggers */
 	With *pWith;		/* Current WITH clause, or NULL */
@@ -3860,6 +3869,14 @@ const char *sqlVListNumToName(VList *, int);
 int sqlVListNameToNum(VList *, const char *, int);
 
 /*
+ * Return a pointer to the name of a variable in the given VList that
+ * coincides with name.  Or return a NULL if there is no such variable in
+ * the list
+ */
+const char *
+sql_find_var_by_name(VList *pIn, const char *name);
+
+/*
  * Routines to read and write variable-length integers.  These used to
  * be defined locally, but now we use the varint routines in the util.c
  * file.
@@ -4290,10 +4307,6 @@ int sqlParserStackPeak(void *);
 #endif
 
 int sqlVdbeParameterIndex(Vdbe *, const char *, int);
-
-/** Transfer all bindings from the first statement over to the second. */
-int
-sqlTransferBindings(struct Vdbe *from, struct Vdbe *to);
 
 int sqlReprepare(Vdbe *);
 

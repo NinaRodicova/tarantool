@@ -186,14 +186,14 @@ sql_bind_column(struct Vdbe *stmt, const struct sql_bind *p, uint32_t pos)
 	}
 	switch (p->type) {
 	case MP_INT:
-		return sql_bind_int64(stmt, pos, p->i64);
+		return sql_bind_int64(stmt, pos);
 	case MP_UINT:
-		return sql_bind_uint64(stmt, pos, p->u64);
+		return sql_bind_uint64(stmt, pos);
 	case MP_BOOL:
-		return sql_bind_boolean(stmt, pos, p->b);
+		return sql_bind_boolean(stmt, pos);
 	case MP_DOUBLE:
 	case MP_FLOAT:
-		return sql_bind_double(stmt, pos, p->d);
+		return sql_bind_double(stmt, pos);
 	case MP_STR:
 		/*
 		 * Parameters are allocated within message pack,
@@ -203,30 +203,44 @@ sql_bind_column(struct Vdbe *stmt, const struct sql_bind *p, uint32_t pos)
 		 * there is no need to copy the packet and we can
 		 * use SQL_STATIC.
 		 */
-		return sql_bind_str_static(stmt, pos, p->s, p->bytes);
+		return sql_bind_str_static(stmt, pos);
 	case MP_NIL:
 		return sql_bind_null(stmt, pos);
 	case MP_BIN:
-		return sql_bind_bin_static(stmt, pos, p->s, p->bytes);
+		return sql_bind_bin_static(stmt, pos);
 	case MP_ARRAY:
-		return sql_bind_array_static(stmt, pos, p->s, p->bytes);
+		return sql_bind_array_static(stmt, pos);
 	case MP_MAP:
-		return sql_bind_map_static(stmt, pos, p->s, p->bytes);
+		return sql_bind_map_static(stmt, pos);
 	case MP_EXT:
 		switch (p->ext_type) {
 		case MP_UUID:
-			return sql_bind_uuid(stmt, pos, &p->uuid);
+			return sql_bind_uuid(stmt, pos);
 		case MP_DECIMAL:
-			return sql_bind_dec(stmt, pos, &p->dec);
+			return sql_bind_dec(stmt, pos);
 		case MP_DATETIME:
-			return sql_bind_datetime(stmt, pos, &p->dt);
+			return sql_bind_datetime(stmt, pos);
 		case MP_INTERVAL:
-			return sql_bind_interval(stmt, pos, &p->itv);
+			return sql_bind_interval(stmt, pos);
 		default:
 			unreachable();
 		}
 	default:
 		unreachable();
+	}
+	return 0;
+}
+
+uint32_t
+sql_bind_find_name(const struct sql_bind *bind, uint32_t bind_count,
+		   const char *name)
+{
+	for (uint32_t i = 0; i < bind_count; i++) {
+		uint32_t len = bind[i].name_len;
+		if (bind[i].name != NULL &&
+		    strncmp(name, bind[i].name, len) == 0 &&
+		    name[len] == 0)
+			return i + 1;
 	}
 	return 0;
 }

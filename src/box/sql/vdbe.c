@@ -48,6 +48,7 @@
 #include "mem.h"
 #include "vdbeInt.h"
 #include "tarantoolInt.h"
+#include "box/bind.h"
 
 #include "msgpuck/msgpuck.h"
 #include "mpstream/mpstream.h"
@@ -356,7 +357,8 @@ vdbe_field_ref_fetch(struct vdbe_field_ref *field_ref, uint32_t fieldno,
  * Execute as much of a VDBE program as we can.
  * This is the core of sql_step().
  */
-int sqlVdbeExec(Vdbe *p)
+int
+sqlVdbeExec(struct Vdbe *p, const struct sql_bind *bind, uint32_t bind_count)
 {
 	Op *aOp = p->aOp;          /* Copy of p->aOp */
 	Op *pOp = aOp;             /* Current operation */
@@ -860,16 +862,40 @@ case OP_Blob: {                /* out2 */
  * The P4 value is used by sql_bind_parameter_name().
  */
 case OP_Variable: {            /* out2 */
-	Mem *pVar;       /* Value being transferred */
-
-	assert(pOp->p1>0 && pOp->p1<=p->nVar);
-	assert(pOp->p4.z==0 || pOp->p4.z==sqlVListNumToName(p->pVList,pOp->p1));
-	pVar = &p->aVar[pOp->p1 - 1];
-	if (sqlVdbeMemTooBig(pVar)) {
+	assert(pOp->p1>=0);
+	pOut = vdbe_prepare_null_out(p, pOp->p2);
+	/* Named variable */
+	if (pOp->p1 == 0) {
+		uint32_t pos = sql_bind_find_name(bind, bind_count,
+						  pOp->p4.z);
+		if (pos == 0)
+			sql_mem_create_from_bind(pOut, NULL);
+		else
+			sql_mem_create_from_bind(pOut, &bind[pos - 1]);
+	} else if (pOp->p4.z == NULL) { /* Numeric or anonymous variable */
+		if ((uint32_t)pOp->p1 <= bind_count) {
+			int pos = pOp->p1 - 1;
+			sql_mem_create_from_bind(pOut, &bind[pos]);
+		} else {
+			sql_mem_create_from_bind(pOut, NULL);
+		}
+	} else { /* Anonymous variable */
+		uint32_t pos = sql_bind_find_name(bind, bind_count,
+						  pOp->p4.z);
+		if (pos == 0) {
+			sql_mem_create_from_bind(pOut, NULL);
+		}
+		else {
+			int idx = pos + pOp->p1;
+			if ((uint32_t)idx <= bind_count)
+				sql_mem_create_from_bind(pOut, &bind[idx - 1]);
+			else
+				sql_mem_create_from_bind(pOut, NULL);
+		}
+	}
+	if (sqlVdbeMemTooBig(pOut)) {
 		goto too_big;
 	}
-	pOut = vdbe_prepare_null_out(p, pOp->p2);
-	mem_copy_as_ephemeral(pOut, pVar);
 	UPDATE_MAX_BLOBSIZE(pOut);
 	break;
 }

@@ -1215,7 +1215,25 @@ sqlExprAssignVarNumber(Parse * pParse, Expr * pExpr, u32 n)
 	if (z[1] == 0) {
 		/* Wildcard of the form "?".  Assign the next variable number */
 		assert(z[0] == '?');
-		x = (ynVar) (++pParse->nVar);
+		if (pParse->anon_base_var_name == NULL) {
+			x = (ynVar) (++pParse->nVar);
+		} else {
+			if (pParse->anon_base_var_name[0] == '$') {
+				int64_t i;
+				bool is_neg;
+				const char *base_name =
+					pParse->anon_base_var_name;
+				sql_atoi64(&base_name[1], &i, &is_neg,
+					   sqlStrlen30(base_name) - 1);
+				x = (ynVar)(i + pParse->anon_offset);
+				if (x > pParse->nVar)
+					pParse->nVar++;
+			} else {
+				x = pParse->anon_offset;
+				pParse->nVar++;
+			}
+			pParse->anon_offset++;
+		}
 	} else {
 		int doAdd = 0;
 		assert(z[0] != '?');
@@ -1242,26 +1260,27 @@ sqlExprAssignVarNumber(Parse * pParse, Expr * pExpr, u32 n)
 				pParse->is_aborted = true;
 				return;
 			}
-			if (x > pParse->nVar) {
-				pParse->nVar = (int)x;
-				doAdd = 1;
-			} else if (sqlVListNumToName(pParse->pVList, x) ==
-				   0) {
-				doAdd = 1;
-			}
+			pParse->anon_base_var_name = z;
+			pParse->anon_offset = 1;
+			if (x > pParse->nVar)
+				pParse->nVar = x;
 		} else {
 			/* Wildcards like ":aaa", or "@aaa".  Reuse the same variable
 			 * number as the prior appearance of the same name, or if the name
 			 * has never appeared before, reuse the same variable number
 			 */
-			x = (ynVar) sqlVListNameToNum(pParse->pVList, z, n);
-			if (x == 0) {
-				x = (ynVar) (++pParse->nVar);
+			ynVar num = sqlVListNameToNum(pParse->pVList, z, n);
+			if (num == 0) {
+				pParse->nVar++;
+				num = (ynVar)pParse->nVar;
 				doAdd = 1;
 			}
-		}
-		if (doAdd) {
-			pParse->pVList = sqlVListAdd(pParse->pVList, z, n, x);
+			x = (ynVar)0;
+			pParse->anon_base_var_name = z;
+			pParse->anon_offset = 1;
+			if (doAdd) {
+				pParse->pVList = sqlVListAdd(pParse->pVList, z, n, num);
+			}
 		}
 	}
 	pExpr->iColumn = x;
@@ -3548,6 +3567,19 @@ exprCodeVector(Parse * pParse, Expr * p, int *piFreeable)
 	return iResult;
 }
 
+/**
+ * This function is adding in Vdbe opcode with named variable in p4.
+ */
+static void
+sql_vdbe_append_P4_named_var(struct Vdbe *v, VList *pVList, const char *name)
+{
+	const char *z =
+		sql_find_var_by_name(pVList, name);
+	/* Indicate VList may no longer be enlarged */
+	pVList[0] = 0;
+	sqlVdbeAppendP4(v, (char *)z, P4_STATIC);
+}
+
 /*
  * Generate code into the current Vdbe to evaluate the given
  * expression.  Attempt to store the results in register "target".
@@ -3676,7 +3708,16 @@ sqlExprCodeTarget(Parse * pParse, Expr * pExpr, int target)
 					  P4_DYNAMIC);
 			return target;
 		}
-	case TK_VAR_NUM:
+	case TK_VAR_NUM: {
+			assert(!ExprHasProperty(pExpr, EP_IntValue));
+			assert(pExpr->u.zToken != 0);
+			assert(pExpr->u.zToken[0] != 0);
+			sqlVdbeAddOp2(v, OP_Variable, pExpr->iColumn,
+					  target);
+			assert(pExpr->u.zToken[1] != 0);
+			/* Indicate VList may no longer be enlarged */
+			return target;
+	}
 	case TK_VAR_NAME: {
 			assert(!ExprHasProperty(pExpr, EP_IntValue));
 			assert(pExpr->u.zToken != 0);
@@ -3684,19 +3725,28 @@ sqlExprCodeTarget(Parse * pParse, Expr * pExpr, int target)
 			sqlVdbeAddOp2(v, OP_Variable, pExpr->iColumn,
 					  target);
 			assert(pExpr->u.zToken[1] != 0);
-			const char *z = sqlVListNumToName(pParse->pVList,
-							  pExpr->iColumn);
-			assert(pExpr->u.zToken[0] == '$' ||
-			       strcmp(pExpr->u.zToken, z) == 0);
-			/* Indicate VList may no longer be enlarged */
-			pParse->pVList[0] = 0;
-			sqlVdbeAppendP4(v, (char *)z, P4_STATIC);
+			sql_vdbe_append_P4_named_var(v, pParse->pVList,
+						     pExpr->u.zToken);
+			pParse->anon_base_var_name = pExpr->u.zToken;
+
+			/* -1 means that field last name filled
+			 * in function sqlExprCodeTarget.
+			 * Consequently, during the subsequent lookup of ?,
+			 * it will be necessary to fill p4 in the Vdbe.
+			 */
+			pParse->anon_offset = -1;
 			return target;
 		}
 	case TK_VAR_ANON: {
 			assert(pExpr->u.zToken[0] == '?');
 			sqlVdbeAddOp2(v, OP_Variable, pExpr->iColumn,
 				      target);
+			if (pParse->anon_offset == -1) {
+				const char *base_name =
+					pParse->anon_base_var_name;
+				sql_vdbe_append_P4_named_var(v, pParse->pVList,
+							     base_name);
+			}
 			return target;
 		}
 	case TK_REGISTER:{

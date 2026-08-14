@@ -293,18 +293,7 @@ like_optimization_is_valid(Parse *pParse, Expr *pExpr, Expr **ppPrefix,
 	op = pRight->op;
 	struct region *region = &pParse->region;
 	size_t svp = region_used(region);
-	if (sql_token_is_variable(op)) {
-		Vdbe *pReprepare = pParse->pReprepare;
-		int iCol = pRight->iColumn;
-		const struct Mem *var = vdbe_get_bound_value(pReprepare, iCol);
-		if (var != NULL && mem_is_str(var)) {
-			uint32_t size = var->n + 1;
-			char *str = xregion_alloc(region, size);
-			memcpy(str, var->z, var->n);
-			str[var->n] = '\0';
-			z = str;
-		}
-	} else if (op == TK_STRING) {
+	if (op == TK_STRING) {
 		z = pRight->u.zToken;
 	}
 	if (z) {

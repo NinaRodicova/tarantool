@@ -225,7 +225,7 @@ struct sql_column_metadata {
 struct Vdbe {
 	Vdbe *pPrev, *pNext;	/* Linked list of VDBEs with the same Vdbe.db */
 	Parse *pParse;		/* Parsing context used to create this Vdbe */
-	ynVar nVar;		/* Number of entries in aVar[] */
+	ynVar nVar;		/* Expected number of bind variables */
 	u32 magic;		/* Magic number for sanity checking */
 	int nMem;		/* Number of memory locations currently allocated */
 	int nCursor;		/* Number of slots in apCsr[] */
@@ -265,7 +265,6 @@ struct Vdbe {
 	struct sql_column_metadata *metadata;
 	Mem *pResultSet;	/* Pointer to an array of results */
 	VdbeCursor **apCsr;	/* One element of this array for each open cursor */
-	Mem *aVar;		/* Values for the OP_Variable opcode. */
 	/**
 	 * Array which contains positions of variables to be
 	 * bound in resulting set of SELECT.
@@ -330,7 +329,12 @@ int sqlVdbeCursorRestore(VdbeCursor *);
 void sqlVdbePrintOp(FILE *, int, Op *);
 #endif
 
-int sqlVdbeExec(Vdbe *);
+/**
+ * Execute as much of a VDBE program as we can.
+ * This is the core of sql_step().
+ */
+int
+sqlVdbeExec(struct Vdbe *, const struct sql_bind *, uint32_t bind_count);
 int sqlVdbeList(Vdbe *);
 
 int sqlVdbeHalt(Vdbe *);
