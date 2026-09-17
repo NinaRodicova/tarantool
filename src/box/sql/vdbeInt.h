@@ -60,6 +60,9 @@ typedef struct VdbeSorter VdbeSorter;
 #define CURTYPE_TARANTOOL   0
 #define CURTYPE_SORTER      1
 #define CURTYPE_PSEUDO      2
+#define CURTYPE_EPHEMERAL   3
+
+struct sql_ephemeral_space;
 
 /*
  * A VdbeCursor is an superclass (a wrapper) for various cursor objects:
@@ -99,6 +102,7 @@ struct VdbeCursor {
 		BtCursor *pCursor;	/* CURTYPE_TARANTOOL */
 		int pseudoTableReg;	/* CURTYPE_PSEUDO. Reg holding content. */
 		VdbeSorter *pSorter;	/* CURTYPE_SORTER. Sorter object */
+		struct sql_ephemeral_space *eph_space; /* CURTYPE_EPHEMERAL. Ephemeral space */
 	} uc;
 	/** Info about keys needed by index cursors. */
 	struct key_def *key_def;

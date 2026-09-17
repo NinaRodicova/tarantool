@@ -4105,6 +4105,7 @@ struct sql_space_info {
 	 * is also NULL.
 	 */
 	uint32_t part_count;
+	bool is_lite;
 };
 
 /**
@@ -4456,5 +4457,37 @@ sql_generate_column_name(uint32_t number)
 {
 	return tt_sprintf("COLUMN_%d", number);
 }
+
+/**
+ * Scratchpad for SQL queries involving `ORDER BY`, `GROUP BY`, and `DISTINCT`.
+ */
+struct sql_ephemeral_space {
+	uint32_t field_count; /* Count of columns in ephemeral space */
+	uint32_t tuple_count; /* Count of row in ephemeral space */
+	uint32_t max_tuple_count; /* Max count of row in ephemeral space */
+	/* Array of names of columns */
+	enum field_type *header;
+	/* Array of tuples with values in ephemeral table */
+	char **tuples; /* Rows in ephemeral table */
+	uint32_t *tuple_sizes;
+};
+
+struct sql_ephemeral_space *
+sql_ephemeral_new(const struct sql_space_info *info);
+
+int
+sql_ephemeral_insert(struct sql_ephemeral_space *space, const char *tuple,
+		     const char *tuple_end);
+
+int
+sql_ephemeral_replace(struct sql_ephemeral_space *space, const char *tuple,
+		     const char *tuple_end);
+
+int
+sql_ephemeral_find(struct sql_ephemeral_space *space, const char *tuple,
+		   const char *tuple_end);
+
+void
+sql_ephemeral_delete(struct sql_ephemeral_space *eph_space);
 
 #endif				/* sqlINT_H */

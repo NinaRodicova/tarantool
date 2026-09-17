@@ -1034,7 +1034,7 @@ vdbe_insert_distinct(struct Parse *parse, int cursor, int reg_eph,
 	int r1 = sqlGetTempReg(parse);
 	sqlVdbeAddOp4Int(v, OP_Found, cursor, addr_repeat, reg_data, n);
 	sqlVdbeAddOp3(v, OP_MakeRecord, reg_data, n, r1);
-	sqlVdbeAddOp2(v, OP_IdxInsert, r1, reg_eph);
+	sqlVdbeAddOp2(v, OP_IdxInsertEphemeral, r1, reg_eph);
 	sqlReleaseTempReg(parse, r1);
 }
 
@@ -2422,6 +2422,7 @@ generateWithRecursiveQuery(Parse * pParse,	/* Parsing context */
 		pParse->is_aborted = true;
 		goto end_of_recursive_query;
 	}
+	info->is_lite = true;
 	sqlVdbeAddOp4(v, OP_OpenTEphemeral, reg_queue, 0, 0, (char *)info,
 		      P4_DYNAMIC);
 	sqlVdbeAddOp3(v, OP_IteratorOpen, iQueue, 0, reg_queue);
@@ -5150,10 +5151,11 @@ resetAccumulator(Parse * pParse, AggInfo * pAggInfo)
 				pFunc->iDistinct = -1;
 				return;
 			}
-			sqlVdbeAddOp4(v, OP_OpenTEphemeral, pFunc->reg_eph, 0,
-				      0, (char *)info, P4_DYNAMIC);
-			sqlVdbeAddOp3(v, OP_IteratorOpen, pFunc->iDistinct, 0,
-				      pFunc->reg_eph);
+			info->is_lite = true;
+			printf("Here2\n");
+			sqlVdbeAddOp4(v, OP_OpenTEphemeral, pFunc->reg_eph,
+				      pFunc->iDistinct, 0, (char *)info,
+				      P4_DYNAMIC);
 		}
 	}
 }
@@ -5743,12 +5745,14 @@ sqlSelect(Parse * pParse,		/* The parser context */
 			pParse->is_aborted = true;
 			goto select_end;
 		}
+		info->is_lite = true;
+		printf("Here1\n");
 		sDistinct.addrTnct = sqlVdbeAddOp4(v, OP_OpenTEphemeral,
-						   sDistinct.reg_eph, 0, 0,
-						   (char *)info, P4_DYNAMIC);
-		sqlVdbeAddOp3(v, OP_IteratorOpen, sDistinct.cur_eph, 0,
-				  sDistinct.reg_eph);
+						   sDistinct.reg_eph,
+						   sDistinct.cur_eph,
+						   0, (char *)info, P4_DYNAMIC);
 		VdbeComment((v, "Distinct table"));
+		sqlVdbeAddOp0(v, OP_Noop);
 		sDistinct.eTnctType = WHERE_DISTINCT_UNORDERED;
 	} else {
 		sDistinct.eTnctType = WHERE_DISTINCT_NOOP;
