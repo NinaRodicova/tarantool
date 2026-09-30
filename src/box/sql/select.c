@@ -1292,7 +1292,8 @@ selectInnerLoop(Parse * pParse,		/* The parser context */
 			r1 = sqlGetTempReg(pParse);
 			sqlVdbeAddOp3(v, OP_MakeRecord, regResult,
 					  nResultCol, r1);
-			sqlVdbeAddOp2(v, OP_IdxInsert,  r1, pDest->reg_eph);
+			printf("ODAAAA\n");
+			sqlVdbeAddOp2(v, OP_IdxInsertEphemeral,  r1, pDest->reg_eph);
 			sqlReleaseTempReg(pParse, r1);
 			break;
 		}
@@ -2422,7 +2423,6 @@ generateWithRecursiveQuery(Parse * pParse,	/* Parsing context */
 		pParse->is_aborted = true;
 		goto end_of_recursive_query;
 	}
-	info->is_lite = true;
 	sqlVdbeAddOp4(v, OP_OpenTEphemeral, reg_queue, 0, 0, (char *)info,
 		      P4_DYNAMIC);
 	sqlVdbeAddOp3(v, OP_IteratorOpen, iQueue, 0, reg_queue);
@@ -2652,6 +2652,7 @@ multiSelect(Parse * pParse,	/* Parsing context */
 	assert(p->pEList && pPrior->pEList);
 	assert(p->pEList->nExpr == pPrior->pEList->nExpr);
 
+	bool is_lite = false;
 	if (p->selFlags & SF_Recursive) {
 		generateWithRecursiveQuery(pParse, p, &dest);
 	} else
@@ -2746,10 +2747,12 @@ multiSelect(Parse * pParse,	/* Parsing context */
 					unionTab = pParse->nTab++;
 					reg_union = ++pParse->nMem;
 					assert(p->pOrderBy == 0);
-					addr = sqlVdbeAddOp1(v,
+					
+					is_lite = true;
+					addr = sqlVdbeAddOp2(v,
 							     OP_OpenTEphemeral,
-							     reg_union);
-					sqlVdbeAddOp3(v, OP_IteratorOpen, unionTab, 0, reg_union);
+							     reg_union, unionTab);
+					sqlVdbeAddOp0(v, OP_Noop);
 					assert(p->addrOpenEphm[0] == -1);
 					p->addrOpenEphm[0] = addr;
 					findRightmost(p)->selFlags |=
@@ -2823,6 +2826,7 @@ multiSelect(Parse * pParse,	/* Parsing context */
 					iCont = sqlVdbeMakeLabel(v);
 					computeLimitRegisters(pParse, p,
 							      iBreak);
+					printf("OP_Rewind 2 \n");
 					sqlVdbeAddOp2(v, OP_Rewind,
 							  unionTab, iBreak);
 					iStart = sqlVdbeCurrentAddr(v);
@@ -2962,7 +2966,9 @@ multiSelect(Parse * pParse,	/* Parsing context */
 					assert(pLoop->addrOpenEphm[1] < 0);
 					break;
 				}
-				sqlVdbeChangeP2(v, addr, nCol);
+				info->is_lite = is_lite;
+				if (!is_lite)
+					sqlVdbeChangeP2(v, addr, nCol);
 				sqlVdbeChangeP4(v, addr, (char *)info,
 						is_info_used ?
 						P4_STATIC : P4_DYNAMIC);
@@ -5152,10 +5158,10 @@ resetAccumulator(Parse * pParse, AggInfo * pAggInfo)
 				return;
 			}
 			info->is_lite = true;
-			printf("Here2\n");
 			sqlVdbeAddOp4(v, OP_OpenTEphemeral, pFunc->reg_eph,
 				      pFunc->iDistinct, 0, (char *)info,
 				      P4_DYNAMIC);
+			sqlVdbeAddOp0(v, OP_Noop);
 		}
 	}
 }
@@ -5746,7 +5752,6 @@ sqlSelect(Parse * pParse,		/* The parser context */
 			goto select_end;
 		}
 		info->is_lite = true;
-		printf("Here1\n");
 		sDistinct.addrTnct = sqlVdbeAddOp4(v, OP_OpenTEphemeral,
 						   sDistinct.reg_eph,
 						   sDistinct.cur_eph,

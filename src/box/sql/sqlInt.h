@@ -4462,14 +4462,22 @@ sql_generate_column_name(uint32_t number)
  * Scratchpad for SQL queries involving `ORDER BY`, `GROUP BY`, and `DISTINCT`.
  */
 struct sql_ephemeral_space {
-	uint32_t field_count; /* Count of columns in ephemeral space */
-	uint32_t tuple_count; /* Count of row in ephemeral space */
-	uint32_t max_tuple_count; /* Max count of row in ephemeral space */
-	/* Array of names of columns */
+	uint32_t field_count; /** Count of columns in ephemeral space. */
+	uint32_t tuple_count; /** Count of row in ephemeral space. */
+	uint32_t max_tuple_count; /** Max count of row in ephemeral space. */
+	/**
+	 * Array of names of columns.
+	 */
 	enum field_type *header;
-	/* Array of tuples with values in ephemeral table */
-	char **tuples; /* Rows in ephemeral table */
+	/**
+	 *  Array of tuples with values in ephemeral table.
+	 */
+	char **tuples; /** Rows in ephemeral table. */
+	/**
+	 * Sizes of tuples in bytes in ephemeral table.
+	 */
 	uint32_t *tuple_sizes;
+	uint32_t i_cur; /** Pointer on current tuple. */
 };
 
 struct sql_ephemeral_space *
@@ -4486,6 +4494,21 @@ sql_ephemeral_replace(struct sql_ephemeral_space *space, const char *tuple,
 int
 sql_ephemeral_find(struct sql_ephemeral_space *space, const char *tuple,
 		   const char *tuple_end);
+
+int
+sql_ephemeral_first(struct sql_ephemeral_space *eph_space, int *res);
+
+int
+sql_ephemeral_next(struct sql_ephemeral_space *eph_space, int *res);
+
+int
+sql_ephemeral_prev(struct sql_ephemeral_space *eph_space, int *res);
+
+enum field_type
+sql_ephemeral_get_type(struct sql_ephemeral_space *eph_space, uint32_t i);
+
+int
+sql_ephemeral_get_cell(struct sql_ephemeral_space *eph_space, uint32_t p2, Mem *pDest);
 
 void
 sql_ephemeral_delete(struct sql_ephemeral_space *eph_space);

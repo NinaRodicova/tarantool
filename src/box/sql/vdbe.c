@@ -1911,6 +1911,30 @@ case OP_Column: {
 	assert(pC->eCurType!=CURTYPE_PSEUDO || pC->nullRow);
 	assert(pC->eCurType!=CURTYPE_SORTER);
 
+	if (pC->eCurType == CURTYPE_EPHEMERAL) {
+		if (pC->nullRow)
+			goto op_column_out;
+		struct Mem *default_val_mem =
+			pOp->p4type == P4_MEM ? pOp->p4.pMem : NULL;
+		if (sql_ephemeral_get_cell(pC->uc.eph_space, p2, pDest) != 0)
+			goto abort_due_to_error;
+		if (mem_is_null(pDest) &&
+		    (uint32_t) p2 >= pC->uc.eph_space->field_count &&
+		    default_val_mem != NULL)
+			mem_copy_as_ephemeral(pDest, default_val_mem);
+		if (pDest->type == MEM_TYPE_NULL)
+			goto op_column_out;
+		enum field_type type =
+			sql_ephemeral_get_type(pC->uc.eph_space, p2);
+		if (type == FIELD_TYPE_ANY)
+			pDest->flags |= MEM_Any;
+		else if (type == FIELD_TYPE_SCALAR)
+			pDest->flags |= MEM_Scalar;
+		else if (type == FIELD_TYPE_NUMBER)
+			pDest->flags |= MEM_Number;
+		goto op_column_out;
+	}
+
 	if (pC->cacheStatus!=p->cacheCtr) {                /*OPTIMIZATION-IF-FALSE*/
 		if (pC->nullRow) {
 			if (pC->eCurType==CURTYPE_PSEUDO) {
@@ -2500,6 +2524,7 @@ case OP_OpenSpace: {
  * to it into P1 register.
  */
 case OP_OpenTEphemeral: {
+	printf("Ephemeral\n");
 	assert(pOp->p1 >= 0);
 
 	assert(pOp->p4type == P4_DYNAMIC || pOp->p4type == P4_STATIC);
@@ -2507,9 +2532,9 @@ case OP_OpenTEphemeral: {
 	assert(info != NULL);
 	if (info->is_lite) {
 		struct sql_ephemeral_space *space = sql_ephemeral_new(info);
-		struct VdbeCursor *cur = allocateCursor(p, pOp->p2,
-							info->field_count,
-							CURTYPE_EPHEMERAL);
+		struct VdbeCursor *cur = p->apCsr[pOp->p2];
+		cur = allocateCursor(p, pOp->p2, info->field_count,
+				     CURTYPE_EPHEMERAL);
 		cur->uc.eph_space = space;
 		if (space == NULL)
 			goto abort_due_to_error;
@@ -2601,7 +2626,9 @@ case OP_OpenPseudo: {
  */
 case OP_Close: {
 	assert(pOp->p1>=0 && pOp->p1<p->nCursor);
+	printf("ALIVE\n");
 	sqlVdbeFreeCursor(p->apCsr[pOp->p1]);
+	printf("ALIVE\n");
 	p->apCsr[pOp->p1] = 0;
 	break;
 }
@@ -3397,12 +3424,18 @@ case OP_Rewind: {        /* jump */
 		if (sqlVdbeSorterRewind(pC, &res) != 0)
 			goto abort_due_to_error;
 	} else {
-		assert(pC->eCurType==CURTYPE_TARANTOOL);
-		pCrsr = pC->uc.pCursor;
-		assert(pCrsr);
-		if (tarantoolsqlFirst(pCrsr, &res) != 0)
-			goto abort_due_to_error;
-		pC->cacheStatus = CACHE_STALE;
+		if (pC->eCurType == CURTYPE_EPHEMERAL) {
+			if (sql_ephemeral_first(pC->uc.eph_space, &res) !=
+			    0)
+				goto abort_due_to_error;
+		} else {
+			assert(pC->eCurType==CURTYPE_TARANTOOL);
+			pCrsr = pC->uc.pCursor;
+			assert(pCrsr);
+			if (tarantoolsqlFirst(pCrsr, &res) != 0)
+				goto abort_due_to_error;
+			pC->cacheStatus = CACHE_STALE;
+		}
 	}
 	pC->nullRow = (u8)res;
 	assert(pOp->p2>0 && pOp->p2<p->nOp);
@@ -3498,27 +3531,34 @@ case OP_Next:          /* jump */
 	pC = p->apCsr[pOp->p1];
 	res = pOp->p3;
 	assert(pC!=0);
-	assert(pC->eCurType==CURTYPE_TARANTOOL);
-	assert(res==0 || res==1);
-	assert(pOp->opcode!=OP_Next || pOp->p4.xAdvance == sqlCursorNext);
-	assert(pOp->opcode!=OP_Prev || pOp->p4.xAdvance == sqlCursorPrevious);
-	assert(pOp->opcode!=OP_NextIfOpen || pOp->p4.xAdvance == sqlCursorNext);
-	assert(pOp->opcode!=OP_PrevIfOpen || pOp->p4.xAdvance == sqlCursorPrevious);
+	if (pC->eCurType == CURTYPE_EPHEMERAL) {
+		if (pOp->opcode == OP_Next)
+			sql_ephemeral_next(pC->uc.eph_space, &res);
+		else if (pOp->opcode == OP_Prev)
+			sql_ephemeral_prev(pC->uc.eph_space, &res);
+	} else {
+		assert(pC->eCurType==CURTYPE_TARANTOOL);
+		assert(res==0 || res==1);
+		assert(pOp->opcode!=OP_Next || pOp->p4.xAdvance == sqlCursorNext);
+		assert(pOp->opcode!=OP_Prev || pOp->p4.xAdvance == sqlCursorPrevious);
+		assert(pOp->opcode!=OP_NextIfOpen || pOp->p4.xAdvance == sqlCursorNext);
+		assert(pOp->opcode!=OP_PrevIfOpen || pOp->p4.xAdvance == sqlCursorPrevious);
 
-	/* The Next opcode is only used after SeekGT, SeekGE, and Rewind.
-	 * The Prev opcode is only used after SeekLT, SeekLE, and Last.
-	 */
-	assert(pOp->opcode!=OP_Next || pOp->opcode!=OP_NextIfOpen
-	       || pC->seekOp==OP_SeekGT || pC->seekOp==OP_SeekGE
-	       || pC->seekOp==OP_Rewind || pC->seekOp==OP_Found);
-	assert(pOp->opcode!=OP_Prev || pOp->opcode!=OP_PrevIfOpen
-	       || pC->seekOp==OP_SeekLT || pC->seekOp==OP_SeekLE
-	       || pC->seekOp==OP_Last);
+		/* The Next opcode is only used after SeekGT, SeekGE, and Rewind.
+		 * The Prev opcode is only used after SeekLT, SeekLE, and Last.
+		 */
+		assert(pOp->opcode!=OP_Next || pOp->opcode!=OP_NextIfOpen
+		       || pC->seekOp==OP_SeekGT || pC->seekOp==OP_SeekGE
+		       || pC->seekOp==OP_Rewind || pC->seekOp==OP_Found);
+		assert(pOp->opcode!=OP_Prev || pOp->opcode!=OP_PrevIfOpen
+		       || pC->seekOp==OP_SeekLT || pC->seekOp==OP_SeekLE
+		       || pC->seekOp==OP_Last);
 
-	if (pOp->p4.xAdvance(pC->uc.pCursor, &res) != 0)
-		goto abort_due_to_error;
-			next_tail:
-	pC->cacheStatus = CACHE_STALE;
+		if (pOp->p4.xAdvance(pC->uc.pCursor, &res) != 0)
+			goto abort_due_to_error;
+				next_tail:
+		pC->cacheStatus = CACHE_STALE;
+	}
 	if (res == 0) {
 		pC->nullRow = 0;
 #ifdef SQL_TEST
