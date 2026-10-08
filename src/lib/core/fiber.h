@@ -794,6 +794,8 @@ struct fiber {
 		/** Length of `audit_context`. */
 		size_t audit_context_len;
 
+		/** Tracing data in OpenTelemetry format. */
+		char traceparent[55];
 	} storage;
 	/** An object to wait for incoming message or a reader. */
 	struct ipc_wait_pad *wait_pad;
@@ -1306,6 +1308,14 @@ fiber_set_system(struct fiber *f, bool yesno);
 /** Turn managed shutdown on. See FIBER_MANAGED_SHUTDOWN. */
 void
 fiber_set_managed_shutdown(struct fiber *f);
+
+/** Set tracing context in fiber. */
+void
+fiber_set_traceparent(struct fiber *f, const char traceparent[55]);
+
+/** Get traceparent. */
+void
+fiber_get_traceparent(struct fiber *f, char traceparent[55]);
 
 /**
  * Cancel all client (non system) fibers and wait until they finished.
